@@ -34,7 +34,7 @@ LABELS = config["label_names"]
 def load_model():
     model_path = "best_toxicity_model.keras"
     file_id = "1YuR2RRT0l9rCEX3ahsuicpREnjzM24X6"
-    download_url = f"https://drive.google.com/uc?id={file_id}"
+    download_url = f"https://drive.google.com/file/d/1_MYD80RuzpVyr0XbevB6e6G8YwVFaoiA/view?usp=drive_link"
 
     if not os.path.exists(model_path):
         st.info("Downloading model from Google Drive...")
