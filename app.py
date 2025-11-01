@@ -33,7 +33,7 @@ def load_model():
     if not os.path.exists(model_path):
         st.info("Downloading model...")
         try:
-            gdown.download("https://drive.google.com/uc?id=1_MYD80RuzpVyr0XbevB6e6G8YwVFaoiA", model_path, quiet=False)
+            gdown.download("https://drive.google.com/file/d/1YuR2RRT0l9rCEX3ahsuicpREnjzM24X6/view?usp=sharing", model_path, quiet=False)
         except Exception as e:
             st.error(f"Error: {str(e)}")
             return None
@@ -66,11 +66,15 @@ vectorizer = load_vectorizer()
 if not model or not vectorizer:
     st.stop()
 
-threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.5, 0.05)
+threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.65, 0.05)
 
 def analyze(text):
     vec = vectorizer([text])
-    return model.predict(vec, verbose=0)[0]
+    preds = model.predict(vec, verbose=0)[0]
+    # Calibrate predictions
+    preds = (preds - 0.3) / 0.7  # Shift and scale
+    preds = preds.clip(0, 1)  # Keep in valid range
+    return preds
 
 def summarize(text, preds):
     is_toxic = any(preds > threshold)
