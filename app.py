@@ -128,18 +128,21 @@ with tab2:
 
     if mode == "Paste":
         data = st.text_area("Paste comments (one per line):")
-        if st.button("Analyze All") and data.strip():
-            comments = [c.strip() for c in data.split("\n") if c.strip()]
-            results = [summarize(c, analyze(c)) for c in comments]
-            df = pd.DataFrame(results)
-            st.dataframe(df, use_container_width=True)
-            st.download_button("Download CSV", df.to_csv(index=False), "results.csv")
-        elif st.button("Analyze All") and not data.strip():
-            st.warning("Please paste at least one comment.")
+        analyze_btn = st.button("Analyze All")
+        
+        if analyze_btn:
+            if not data.strip():
+                st.warning("Please paste at least one comment.")
+            else:
+                comments = [c.strip() for c in data.split("\n") if c.strip()]
+                results = [summarize(c, analyze(c)) for c in comments]
+                df = pd.DataFrame(results)
+                st.dataframe(df, use_container_width=True)
+                st.download_button("Download CSV", df.to_csv(index=False), "results.csv")
 
     else:
         file = st.file_uploader("Upload CSV with a column named 'comment_text'", type=["csv"])
-        if file and st.button("Analyze File"):
+        if st.button("Analyze File"):
             df = pd.read_csv(file)
             if "comment_text" not in df.columns:
                 st.error("CSV must contain a column named 'comment_text'.")
