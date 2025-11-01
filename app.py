@@ -7,9 +7,11 @@ from tensorflow.keras.layers import TextVectorization
 import os
 import gdown
 
+# Page config
 st.set_page_config(page_title="Toxicity Detector", layout="wide")
 st.title("Comment Toxicity Detector")
 
+# Load config
 @st.cache_resource
 def load_config():
     try:
@@ -27,22 +29,30 @@ MAX_WORDS = config["max_words"]
 MAX_LEN = config["max_len"]
 LABELS = config["label_names"]
 
+# Load model
 @st.cache_resource
 def load_model():
     model_path = "best_toxicity_model.keras"
+    file_id = "1YuR2RRT0l9rCEX3ahsuicpREnjzM24X6"
+    download_url = f"https://drive.google.com/uc?id={file_id}"
+
     if not os.path.exists(model_path):
-        st.info("Downloading model...")
+        st.info("Downloading model from Google Drive...")
         try:
-            gdown.download("https://drive.google.com/file/d/1YuR2RRT0l9rCEX3ahsuicpREnjzM24X6/view?usp=drive_link", model_path, quiet=False)
+            gdown.download(download_url, model_path, quiet=False)
         except Exception as e:
-            st.error(f"Error: {str(e)}")
+            st.error(f"Download failed: {str(e)}")
             return None
+
     try:
-        return tf.keras.models.load_model(model_path, compile=False)
-    except:
-        st.error("Could not load model")
+        model = tf.keras.models.load_model(model_path, compile=False)
+        st.success("Model loaded successfully.")
+        return model
+    except Exception as e:
+        st.error(f"Could not load model: {str(e)}")
         return None
 
+# Load vectorizer
 @st.cache_resource
 def load_vectorizer():
     try:
@@ -55,25 +65,29 @@ def load_vectorizer():
             standardize="lower_and_strip_punctuation"
         )
         vec.set_vocabulary(vocab)
+        st.success("Vectorizer loaded successfully.")
         return vec
-    except:
-        st.error("Could not load vectorizer")
+    except Exception as e:
+        st.error(f"Could not load vectorizer: {str(e)}")
         return None
 
+# Initialize
 model = load_model()
 vectorizer = load_vectorizer()
 
 if not model or not vectorizer:
     st.stop()
 
+# Sidebar
 threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.65, 0.05)
+st.sidebar.write("Adjust threshold to make detection stricter or more lenient.")
 
+# Analysis functions
 def analyze(text):
     vec = vectorizer([text])
     preds = model.predict(vec, verbose=0)[0]
-    # Calibrate predictions
-    preds = (preds - 0.3) / 0.7  # Shift and scale
-    preds = preds.clip(0, 1)  # Keep in valid range
+    preds = (preds - 0.3) / 0.7  # calibration
+    preds = preds.clip(0, 1)
     return preds
 
 def summarize(text, preds):
@@ -86,20 +100,32 @@ def summarize(text, preds):
         "Categories": ", ".join(toxic_labels) if toxic_labels else "None"
     }
 
+# Tabs
 tab1, tab2 = st.tabs(["Single Comment", "Multiple Comments"])
 
+# Single comment
 with tab1:
     txt = st.text_area("Enter a comment:")
     if st.button("Analyze"):
-        preds = analyze(txt)
-        st.write("---")
-        st.write("Toxic Content Detected" if any(preds > threshold) else "Clean Comment")
-        for label, p in zip(LABELS, preds):
-            st.write(f"{label.title()}: {p:.1%}")
-            st.progress(float(p))
+        if not txt.strip():
+            st.warning("Please enter a comment first.")
+        else:
+            preds = analyze(txt)
+            st.write("---")
+            if any(preds > threshold):
+                st.error("Toxic content detected.")
+            else:
+                st.success("Clean comment.")
 
+            st.subheader("Prediction Details:")
+            for label, p in zip(LABELS, preds):
+                st.write(f"{label.title()}: {p:.1%}")
+                st.progress(float(p))
+
+# Multiple comments
 with tab2:
     mode = st.radio("Input method:", ["Paste", "Upload CSV"])
+
     if mode == "Paste":
         data = st.text_area("Paste comments (one per line):")
         if st.button("Analyze All") and data.strip():
@@ -108,14 +134,17 @@ with tab2:
             df = pd.DataFrame(results)
             st.dataframe(df, use_container_width=True)
             st.download_button("Download CSV", df.to_csv(index=False), "results.csv")
+        elif st.button("Analyze All") and not data.strip():
+            st.warning("Please paste at least one comment.")
+
     else:
-        file = st.file_uploader("Upload CSV with 'comment_text' column", type=["csv"])
+        file = st.file_uploader("Upload CSV with a column named 'comment_text'", type=["csv"])
         if file and st.button("Analyze File"):
             df = pd.read_csv(file)
             if "comment_text" not in df.columns:
-                st.error("Missing 'comment_text' column")
+                st.error("CSV must contain a column named 'comment_text'.")
             else:
-                results = [summarize(c, analyze(c)) for c in df["comment_text"].astype(str)]
-                out = pd.DataFrame(results)
-                st.dataframe(out, use_container_width=True)
-                st.download_button("Download CSV", out.to_csv(index=False), "results.csv")
+                df["Results"] = df["comment_text"].apply(lambda x: summarize(x, analyze(x)))
+                results = pd.json_normalize(df["Results"])
+                st.dataframe(results, use_container_width=True)
+                st.download_button("Download CSV", results.to_csv(index=False), "results.csv")
