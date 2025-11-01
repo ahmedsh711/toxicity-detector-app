@@ -33,7 +33,7 @@ def load_model():
     if not os.path.exists(model_path):
         st.info("Downloading model...")
         try:
-            gdown.download("https://drive.google.com/file/d/1YuR2RRT0l9rCEX3ahsuicpREnjzM24X6/view?usp=sharing", model_path, quiet=False)
+            gdown.download("https://drive.google.com/file/d/1YuR2RRT0l9rCEX3ahsuicpREnjzM24X6/view?usp=drive_link", model_path, quiet=False)
         except Exception as e:
             st.error(f"Error: {str(e)}")
             return None
