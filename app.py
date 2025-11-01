@@ -1,16 +1,15 @@
 import streamlit as st
 import tensorflow as tf
 import pandas as pd
-import pickle, json
+import pickle
+import json
 from tensorflow.keras.layers import TextVectorization
 import os
 import gdown
 
-# Page Setup
 st.set_page_config(page_title="Toxicity Detector", layout="wide")
 st.title("Comment Toxicity Detector")
 
-# Load Config
 @st.cache_resource
 def load_config():
     try:
@@ -20,38 +19,30 @@ def load_config():
         return {
             "max_words": 50000,
             "max_len": 300,
-            "label_names": [
-                "toxic",
-                "severe_toxic",
-                "obscene",
-                "threat",
-                "insult",
-                "identity_hate",
-            ],
+            "label_names": ["toxic", "severe_toxic", "obscene", "threat", "insult", "identity_hate"]
         }
 
 config = load_config()
-MAX_WORDS, MAX_LEN, LABELS = config["max_words"], config["max_len"], config["label_names"]
+MAX_WORDS = config["max_words"]
+MAX_LEN = config["max_len"]
+LABELS = config["label_names"]
 
-# Load Model
 @st.cache_resource
 def load_model():
     model_path = "best_toxicity_model.keras"
     if not os.path.exists(model_path):
-        st.info("Downloading model from Google Drive...")
+        st.info("Downloading model...")
         try:
             gdown.download("https://drive.google.com/uc?id=1_MYD80RuzpVyr0XbevB6e6G8YwVFaoiA", model_path, quiet=False)
-            st.success("Model downloaded successfully!")
         except Exception as e:
-            st.error(f"Error downloading model: {str(e)}")
+            st.error(f"Error: {str(e)}")
             return None
     try:
         return tf.keras.models.load_model(model_path, compile=False)
     except:
-        st.error("Error: Could not load model.")
+        st.error("Could not load model")
         return None
 
-# Load Vectorizer
 @st.cache_resource
 def load_vectorizer():
     try:
@@ -61,23 +52,22 @@ def load_vectorizer():
             max_tokens=MAX_WORDS,
             output_sequence_length=MAX_LEN,
             output_mode="int",
-            standardize="lower_and_strip_punctuation",
+            standardize="lower_and_strip_punctuation"
         )
         vec.set_vocabulary(vocab)
         return vec
     except:
-        st.error("Error: Could not load vectorizer.")
+        st.error("Could not load vectorizer")
         return None
 
-# Initialize Model and Vectorizer
-model, vectorizer = load_model(), load_vectorizer()
+model = load_model()
+vectorizer = load_vectorizer()
+
 if not model or not vectorizer:
     st.stop()
 
-# Sidebar
 threshold = st.sidebar.slider("Detection Threshold", 0.0, 1.0, 0.5, 0.05)
 
-# Helper Functions
 def analyze(text):
     vec = vectorizer([text])
     return model.predict(vec, verbose=0)[0]
@@ -89,13 +79,11 @@ def summarize(text, preds):
         "Comment": text[:80] + "..." if len(text) > 80 else text,
         "Status": "Toxic" if is_toxic else "Clean",
         "Confidence": f"{max(preds):.1%}",
-        "Categories": ", ".join(toxic_labels) if toxic_labels else "None",
+        "Categories": ", ".join(toxic_labels) if toxic_labels else "None"
     }
 
-# Tabs
 tab1, tab2 = st.tabs(["Single Comment", "Multiple Comments"])
 
-# Single Comment Tab
 with tab1:
     txt = st.text_area("Enter a comment:")
     if st.button("Analyze"):
@@ -106,7 +94,6 @@ with tab1:
             st.write(f"{label.title()}: {p:.1%}")
             st.progress(float(p))
 
-# Multiple Comments Tab
 with tab2:
     mode = st.radio("Input method:", ["Paste", "Upload CSV"])
     if mode == "Paste":
@@ -122,7 +109,7 @@ with tab2:
         if file and st.button("Analyze File"):
             df = pd.read_csv(file)
             if "comment_text" not in df.columns:
-                st.error("Missing 'comment_text' column.")
+                st.error("Missing 'comment_text' column")
             else:
                 results = [summarize(c, analyze(c)) for c in df["comment_text"].astype(str)]
                 out = pd.DataFrame(results)
