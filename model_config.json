@@ -1,0 +1,17 @@
+{
+  "max_words": 50000,
+  "max_len": 300,
+  "batch_size": 64,
+  "threshold": 0.5,
+  "label_names": [
+    "toxic",
+    "severe_toxic",
+    "obscene",
+    "threat",
+    "insult",
+    "identity_hate"
+  ],
+  "model_architecture": "Bidirectional LSTM",
+  "best_val_auc": 0.9073965549468994,
+  "training_date": "2025-10-31"
+}
